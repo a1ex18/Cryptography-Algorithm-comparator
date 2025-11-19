@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptographic Algorithms Visualizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1> Cryptographic Algorithms Visualizer</h1>
+            <p class="subtitle">Real-time Parallel Algorithm Benchmarking & Visualization</p>
+        </header>
+
+        <!-- Parameters Configuration Panel -->
+        <div class="config-panel">
+            <h3> Configure Algorithm Parameters</h3>
+            
+            <div class="config-grid">
+                <!-- RSA Configuration -->
+                <div class="config-section">
+                    <h4>🔑 RSA Parameters</h4>
+                    <div class="param-group">
+                        <label for="rsa-bits">Key Size (bits):</label>
+                        <select id="rsa-bits" class="param-select">
+                            <option value="256">256</option>
+                            <option value="512" selected>512</option>
+                            <option value="1024">1024</option>
+                            <option value="2048">2048</option>
+                        </select>
+                    </div>
+                    <div class="param-group">
+                        <label for="rsa-msgsize">Message Size (bytes):</label>
+                        <select id="rsa-msgsize" class="param-select">
+                            <option value="16">16</option>
+                            <option value="32" selected>32</option>
+                            <option value="64">64</option>
+                            <option value="128">128</option>
+                            <option value="256">256</option>
+                        </select>
+                    </div>
+                    <div class="param-group">
+                        <label for="rsa-repeats">Repeats:</label>
+                        <select id="rsa-repeats" class="param-select">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ECC Configuration -->
+                <div class="config-section">
+                    <h4>📈 ECC Parameters</h4>
+                    <div class="param-group">
+                        <label for="ecc-curve">Curve:</label>
+                        <select id="ecc-curve" class="param-select">
+                            <option value="secp192r1" selected>secp192r1 (192-bit)</option>
+                            <option value="secp256r1">secp256r1 (256-bit)</option>
+                        </select>
+                    </div>
+                    <div class="param-group">
+                        <label for="ecc-repeats">Repeats:</label>
+                        <select id="ecc-repeats" class="param-select">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- SHA-256 Configuration -->
+                <div class="config-section">
+                    <h4>🔒 SHA-256 Parameters</h4>
+                    <div class="param-group">
+                        <label>Message Sizes (bytes):</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="16">
+                                <span>16</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="32">
+                                <span>32</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="64">
+                                <span>64</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="128" checked>
+                                <span>128</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="256">
+                                <span>256</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="512">
+                                <span>512</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sha256-size" class="sha256-size" value="1024">
+                                <span>1024</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="param-group">
+                        <label for="sha256-repeats">Repeats:</label>
+                        <select id="sha256-repeats" class="param-select">
+                            <option value="10">10</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- BB84 Configuration -->
+                <div class="config-section">
+                    <h4>⚛️ BB84 Parameters</h4>
+                    <div class="param-group">
+                        <label>Qubit Counts:</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="bb84-qubit" class="bb84-qubit" value="64">
+                                <span>64</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bb84-qubit" class="bb84-qubit" value="128" checked>
+                                <span>128</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bb84-qubit" class="bb84-qubit" value="256">
+                                <span>256</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bb84-qubit" class="bb84-qubit" value="512">
+                                <span>512</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bb84-qubit" class="bb84-qubit" value="1024">
+                                <span>1024</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="param-group">
+                        <label for="bb84-repeats">Repeats:</label>
+                        <select id="bb84-repeats" class="param-select">
+                            <option value="3">3</option>
+                            <option value="5" selected>5</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                    <div class="param-group">
+                        <label for="bb84-error">Channel Error Rate:</label>
+                        <select id="bb84-error" class="param-select">
+                            <option value="0.0">0% (No Error)</option>
+                            <option value="0.01" selected>1%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.1">10%</option>
+                            <option value="0.15">15%</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button id="runBtn" class="btn-primary">▶ Run All Benchmarks</button>
+            <button id="resetBtn" class="btn-secondary">🔄 Reset</button>
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+
+        <div class="algorithms-grid">
+            <!-- RSA Card -->
+            <div class="algorithm-card" id="rsa-card">
+                <div class="card-header">
+                    <h2>🔑 RSA Encryption</h2>
+                    <span class="algorithm-badge">Public Key</span>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="rsa-progress"></div>
+                        </div>
+                        <span class="progress-text" id="rsa-percentage">0%</span>
+                    </div>
+                    <div class="stage-info" id="rsa-stage">Waiting to start...</div>
+                    <div class="metrics" id="rsa-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">Key Generation:</span>
+                            <span class="metric-value" id="rsa-keygen">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Encryption:</span>
+                            <span class="metric-value" id="rsa-encrypt">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Decryption:</span>
+                            <span class="metric-value" id="rsa-decrypt">--</span>
+                        </div>
+                        <div class="metric-item total">
+                            <span class="metric-label">Total Time:</span>
+                            <span class="metric-value" id="rsa-total">--</span>
+                        </div>
+                    </div>
+                    <div class="visualization" id="rsa-viz">
+                        <canvas id="rsa-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ECC Card -->
+            <div class="algorithm-card" id="ecc-card">
+                <div class="card-header">
+                    <h2>📈 ECC (ECDH)</h2>
+                    <span class="algorithm-badge">Elliptic Curve</span>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="ecc-progress"></div>
+                        </div>
+                        <span class="progress-text" id="ecc-percentage">0%</span>
+                    </div>
+                    <div class="stage-info" id="ecc-stage">Waiting to start...</div>
+                    <div class="metrics" id="ecc-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">Key Generation:</span>
+                            <span class="metric-value" id="ecc-keygen">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Shared Secret:</span>
+                            <span class="metric-value" id="ecc-shared">--</span>
+                        </div>
+                        <div class="metric-item total">
+                            <span class="metric-label">Total Time:</span>
+                            <span class="metric-value" id="ecc-total">--</span>
+                        </div>
+                    </div>
+                    <div class="visualization" id="ecc-viz">
+                        <canvas id="ecc-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SHA-256 Card -->
+            <div class="algorithm-card" id="sha256-card">
+                <div class="card-header">
+                    <h2>🔒 SHA-256</h2>
+                    <span class="algorithm-badge">Hash Function</span>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="sha256-progress"></div>
+                        </div>
+                        <span class="progress-text" id="sha256-percentage">0%</span>
+                    </div>
+                    <div class="stage-info" id="sha256-stage">Waiting to start...</div>
+                    <div class="metrics" id="sha256-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label" id="sha256-size-label">Message Size:</span>
+                            <span class="metric-value" id="sha256-size-value">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Hash Time:</span>
+                            <span class="metric-value" id="sha256-time">--</span>
+                        </div>
+                        <div class="metric-item total">
+                            <span class="metric-label">Total Time:</span>
+                            <span class="metric-value" id="sha256-total">--</span>
+                        </div>
+                    </div>
+                    <div class="visualization" id="sha256-viz">
+                        <canvas id="sha256-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BB84 Card -->
+            <div class="algorithm-card" id="bb84-card">
+                <div class="card-header">
+                    <h2>⚛️ BB84 QKD</h2>
+                    <span class="algorithm-badge">Quantum Simulation</span>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="bb84-progress"></div>
+                        </div>
+                        <span class="progress-text" id="bb84-percentage">0%</span>
+                    </div>
+                    <div class="stage-info" id="bb84-stage">Waiting to start...</div>
+                    <div class="metrics" id="bb84-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">Qubit Count:</span>
+                            <span class="metric-value" id="bb84-qubits">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Avg Time:</span>
+                            <span class="metric-value" id="bb84-time">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Error Rate:</span>
+                            <span class="metric-value" id="bb84-error-rate">--</span>
+                        </div>
+                        <div class="metric-item total">
+                            <span class="metric-label">Total Time:</span>
+                            <span class="metric-value" id="bb84-total">--</span>
+                        </div>
+                    </div>
+                    <div class="visualization" id="bb84-viz">
+                        <canvas id="bb84-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Chart -->
+        <div class="comparison-section">
+            <h2>📊 Performance Comparison</h2>
+            <div class="chart-container">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

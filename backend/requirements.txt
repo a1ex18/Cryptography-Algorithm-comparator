@@ -1,0 +1,37 @@
+# Core Flask packages
+Flask==3.0.0
+flask-socketio==5.3.5
+python-socketio==5.10.0
+eventlet==0.33.3
+
+# WSGI server
+Werkzeug==3.0.1
+
+# WebSocket support
+python-engineio==4.8.0
+bidict==0.22.1
+simple-websocket==1.0.0
+
+# Async support
+greenlet==3.0.1
+
+# CORS support (if needed)
+Flask-Cors==4.0.0
+
+# Cryptography dependencies (already in Python standard library, listed for reference)
+# - hashlib (built-in)
+# - secrets (built-in)
+# - random (built-in)
+# - time (built-in)
+# - math (built-in)
+# - statistics (built-in)
+# - typing (built-in)
+
+# Optional: for better performance
+# numpy==1.26.2  # Uncomment if you want to add numerical operations
+
+# Development dependencies (optional)
+# python-dotenv==1.0.0  # For environment variables
+# pytest==7.4.3  # For testing
+# black==23.11.0  # For code formatting
+# flake8==6.1.0  # For linting
