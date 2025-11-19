@@ -23,6 +23,20 @@ const resetBtn = document.getElementById('resetBtn');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 
+// Formatting helpers
+const toMsFromSeconds = (seconds) => (typeof seconds === 'number' ? seconds * 1000 : 0);
+const toMsFromNs = (ns) => (typeof ns === 'number' ? ns / 1_000_000 : 0);
+const toUsFromNs = (ns) => (typeof ns === 'number' ? ns / 1000 : 0);
+
+const formatMsFromSeconds = (seconds, digits = 3) =>
+    typeof seconds === 'number' ? `${toMsFromSeconds(seconds).toFixed(digits)} ms` : '--';
+
+const formatMsFromNs = (ns, digits = 3) =>
+    typeof ns === 'number' ? `${toMsFromNs(ns).toFixed(digits)} ms` : '--';
+
+const formatUsFromNs = (ns, digits = 3) =>
+    typeof ns === 'number' ? `${toUsFromNs(ns).toFixed(digits)} μs` : '--';
+
 // Get configuration parameters
 function getParameters() {
     // RSA Parameters
@@ -92,6 +106,8 @@ socket.on('benchmarks_started', (data) => {
 runBtn.addEventListener('click', () => {
     resetAll();
     const params = getParameters();
+    state.sha256.data.selectedSize = params.sha256.size;
+    state.bb84.data.selectedQubit = params.bb84.qubit_count;
     console.log('Starting benchmarks with parameters:', params);
     socket.emit('run_benchmarks', params);
     runBtn.disabled = true;
@@ -113,7 +129,7 @@ function updateAlgorithm(data) {
     
     state[algorithm].progress = progress;
     state[algorithm].status = stage;
-    state[algorithm].data = { ...state[algorithm].data, ...algoData };
+    state[algorithm].data = { ...state[algorithm].data, ...(algoData || {}) };
     
     // Update progress bar
     const progressFill = document.getElementById(`${algorithm}-progress`);
@@ -151,55 +167,93 @@ function updateMetrics(algorithm, data) {
     switch(algorithm) {
         case 'rsa':
             if (data.keygen_time) {
-                document.getElementById('rsa-keygen').textContent = `${(data.keygen_time * 1000).toFixed(2)} ms`;
+                document.getElementById('rsa-keygen').textContent = formatMsFromSeconds(data.keygen_time, 2);
             }
             if (data.encrypt_time) {
-                document.getElementById('rsa-encrypt').textContent = `${(data.encrypt_time * 1000).toFixed(2)} ms`;
+                document.getElementById('rsa-encrypt').textContent = formatMsFromSeconds(data.encrypt_time, 2);
             }
             if (data.decrypt_time) {
-                document.getElementById('rsa-decrypt').textContent = `${(data.decrypt_time * 1000).toFixed(2)} ms`;
+                document.getElementById('rsa-decrypt').textContent = formatMsFromSeconds(data.decrypt_time, 2);
             }
             if (data.total_time) {
-                document.getElementById('rsa-total').textContent = `${(data.total_time * 1000).toFixed(2)} ms`;
+                document.getElementById('rsa-total').textContent = formatMsFromSeconds(data.total_time, 2);
             }
             break;
             
         case 'ecc':
             if (data.keygen_time) {
-                document.getElementById('ecc-keygen').textContent = `${(data.keygen_time * 1000).toFixed(3)} ms`;
+                const base = formatMsFromSeconds(data.keygen_time, 3);
+                const std = data.keygen_std ? formatMsFromSeconds(data.keygen_std, 3) : null;
+                document.getElementById('ecc-keygen').textContent = std ? `${base} ± ${std}` : base;
             }
             if (data.shared_time) {
-                document.getElementById('ecc-shared').textContent = `${(data.shared_time * 1000).toFixed(3)} ms`;
+                const base = formatMsFromSeconds(data.shared_time, 3);
+                const std = data.shared_std ? formatMsFromSeconds(data.shared_std, 3) : null;
+                document.getElementById('ecc-shared').textContent = std ? `${base} ± ${std}` : base;
             }
             if (data.total_time) {
-                document.getElementById('ecc-total').textContent = `${(data.total_time * 1000).toFixed(2)} ms`;
+                document.getElementById('ecc-total').textContent = formatMsFromSeconds(data.total_time, 2);
             }
             break;
             
         case 'sha256':
-            if (data.size) {
-                document.getElementById('sha256-size-value').textContent = `${data.size} bytes`;
-            }
-            if (data.time) {
-                document.getElementById('sha256-time').textContent = `${(data.time * 1000000).toFixed(3)} μs`;
-            }
-            if (data.total_time) {
-                document.getElementById('sha256-total').textContent = `${(data.total_time * 1000000).toFixed(2)} μs`;
+            {
+                const resultEntries = data.results ? Object.entries(data.results) : [];
+                const preferredKey = state.sha256.data.selectedSize !== undefined
+                    ? String(state.sha256.data.selectedSize)
+                    : data.size !== undefined
+                        ? String(data.size)
+                        : (resultEntries.length ? resultEntries[0][0] : undefined);
+                const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
+                const activeKey = activeEntry ? activeEntry[0] : undefined;
+                const selected = activeKey ? Number(activeKey) : state.sha256.data.selectedSize;
+
+                if (selected !== undefined) {
+                    document.getElementById('sha256-size-value').textContent = `${selected} bytes`;
+                }
+
+                if (activeEntry) {
+                    const stats = activeEntry[1];
+                    const avgUs = formatUsFromNs(stats.avg_ns, 3);
+                    const stdUs = stats.std_ns ? formatUsFromNs(stats.std_ns, 3) : null;
+                    document.getElementById('sha256-time').textContent = stdUs ? `${avgUs} ± ${stdUs}` : avgUs;
+                }
+
+                if (typeof data.total_time_ns === 'number') {
+                    document.getElementById('sha256-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
+                }
             }
             break;
             
         case 'bb84':
-            if (data.qubit_count) {
-                document.getElementById('bb84-qubits').textContent = `${data.qubit_count} qubits`;
-            }
-            if (data.avg_time) {
-                document.getElementById('bb84-time').textContent = `${(data.avg_time * 1000).toFixed(2)} ms`;
-            }
-            if (data.avg_error !== undefined) {
-                document.getElementById('bb84-error-rate').textContent = `${(data.avg_error * 100).toFixed(2)}%`;
-            }
-            if (data.total_time) {
-                document.getElementById('bb84-total').textContent = `${(data.total_time * 1000).toFixed(2)} ms`;
+            {
+                const resultEntries = data.results ? Object.entries(data.results) : [];
+                const preferredKey = state.bb84.data.selectedQubit !== undefined
+                    ? String(state.bb84.data.selectedQubit)
+                    : data.qubit_count !== undefined
+                        ? String(data.qubit_count)
+                        : (resultEntries.length ? resultEntries[0][0] : undefined);
+                const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
+                const activeKey = activeEntry ? activeEntry[0] : undefined;
+                const selected = activeKey ? Number(activeKey) : state.bb84.data.selectedQubit;
+
+                if (selected !== undefined) {
+                    document.getElementById('bb84-qubits').textContent = `${selected} qubits`;
+                }
+
+                if (activeEntry) {
+                    const stats = activeEntry[1];
+                    const avgMs = formatMsFromNs(stats.avg_ns, 3);
+                    const stdMs = stats.std_ns ? formatMsFromNs(stats.std_ns, 3) : null;
+                    document.getElementById('bb84-time').textContent = stdMs ? `${avgMs} ± ${stdMs}` : avgMs;
+                    if (typeof stats.avg_error === 'number') {
+                        document.getElementById('bb84-error-rate').textContent = `${(stats.avg_error * 100).toFixed(2)}%`;
+                    }
+                }
+
+                if (typeof data.total_time_ns === 'number') {
+                    document.getElementById('bb84-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
+                }
             }
             break;
     }
@@ -216,18 +270,18 @@ function updateChart(algorithm, data) {
         charts[algorithm].destroy();
     }
     
-    let chartData, chartOptions;
-    
-    switch(algorithm) {
+    let chartData = null;
+
+    switch (algorithm) {
         case 'rsa':
             chartData = {
                 labels: ['Key Gen', 'Encrypt', 'Decrypt'],
                 datasets: [{
                     label: 'Time (ms)',
                     data: [
-                        (data.keygen_time * 1000).toFixed(2),
-                        (data.encrypt_time * 1000).toFixed(2),
-                        (data.decrypt_time * 1000).toFixed(2)
+                        toMsFromSeconds(data.keygen_time).toFixed(2),
+                        toMsFromSeconds(data.encrypt_time).toFixed(2),
+                        toMsFromSeconds(data.decrypt_time).toFixed(2)
                     ],
                     backgroundColor: [
                         'rgba(99, 102, 241, 0.7)',
@@ -243,15 +297,15 @@ function updateChart(algorithm, data) {
                 }]
             };
             break;
-            
+
         case 'ecc':
             chartData = {
                 labels: ['Key Gen', 'Shared Secret'],
                 datasets: [{
                     label: 'Time (ms)',
                     data: [
-                        (data.keygen_time * 1000).toFixed(3),
-                        (data.shared_time * 1000).toFixed(3)
+                        toMsFromSeconds(data.keygen_time).toFixed(3),
+                        toMsFromSeconds(data.shared_time).toFixed(3)
                     ],
                     backgroundColor: [
                         'rgba(16, 185, 129, 0.7)',
@@ -265,41 +319,80 @@ function updateChart(algorithm, data) {
                 }]
             };
             break;
-            
-        case 'sha256':
+
+        case 'sha256': {
+            const resultEntries = data.results ? Object.entries(data.results) : [];
+            if (!resultEntries.length) {
+                break;
+            }
+
+            const preferredKey = state.sha256.data.selectedSize !== undefined
+                ? String(state.sha256.data.selectedSize)
+                : data.size !== undefined
+                    ? String(data.size)
+                    : resultEntries[0][0];
+            const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
+            const selected = Number(activeEntry[0]);
+            const avgNs = activeEntry[1]?.avg_ns ?? null;
+
             chartData = {
-                labels: [`${data.size} bytes`],
+                labels: [`${Number.isFinite(selected) ? selected : activeEntry[0]} bytes`],
                 datasets: [{
                     label: 'Time (μs)',
-                    data: [(data.time * 1000000).toFixed(3)],
+                    data: [avgNs !== null ? toUsFromNs(avgNs).toFixed(3) : 0],
                     backgroundColor: 'rgba(245, 158, 11, 0.7)',
                     borderColor: 'rgba(245, 158, 11, 1)',
                     borderWidth: 2
                 }]
             };
             break;
-            
-        case 'bb84':
+        }
+
+        case 'bb84': {
+            const resultEntries = data.results ? Object.entries(data.results) : [];
+            if (!resultEntries.length) {
+                break;
+            }
+
+            const preferredKey = state.bb84.data.selectedQubit !== undefined
+                ? String(state.bb84.data.selectedQubit)
+                : data.qubit_count !== undefined
+                    ? String(data.qubit_count)
+                    : resultEntries[0][0];
+            const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
+            const labels = resultEntries.map(([key]) => `${key} qubits`);
+            const dataPoints = resultEntries.map(([, stats]) => toMsFromNs(stats.avg_ns).toFixed(3));
+
             chartData = {
-                labels: [`${data.qubit_count} qubits`],
+                labels,
                 datasets: [{
                     label: 'Time (ms)',
-                    data: [(data.avg_time * 1000).toFixed(2)],
-                    backgroundColor: 'rgba(236, 72, 153, 0.7)',
-                    borderColor: 'rgba(236, 72, 153, 1)',
+                    data: dataPoints,
+                    backgroundColor: dataPoints.map((_, i) =>
+                        `rgba(${Math.max(200, 236 - i * 12)}, ${Math.min(255, 72 + i * 8)}, ${Math.max(120, 153 - i * 10)}, 0.7)`
+                    ),
+                    borderColor: dataPoints.map((_, i) =>
+                        `rgba(${Math.max(200, 236 - i * 12)}, ${Math.min(255, 72 + i * 8)}, ${Math.max(120, 153 - i * 10)}, 1)`
+                    ),
                     borderWidth: 2
                 }]
             };
             break;
+        }
+
+        default:
+            chartData = null;
     }
-    
-    chartOptions = {
+
+    if (!chartData) {
+        return;
+    }
+
+    const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: {
-                display: false
-            }
+            legend: { display: false }
         },
         scales: {
             y: {
@@ -341,15 +434,21 @@ function updateComparisonChart() {
         charts.comparison.destroy();
     }
     
-    const rsaTotal = state.rsa.data.total_time * 1000 || 0;
-    const eccTotal = state.ecc.data.total_time * 1000 || 0;
-    const sha256Total = state.sha256.data.total_time * 1000000 || 0; // to μs
-    const bb84Total = state.bb84.data.total_time * 1000 || 0;
+    const rsaTotal = toMsFromSeconds(state.rsa.data.total_time) || 0;
+    const eccTotal = state.ecc.data.total_time_ns
+        ? toMsFromNs(state.ecc.data.total_time_ns)
+        : toMsFromSeconds(state.ecc.data.total_time);
+    const sha256Total = state.sha256.data.total_time_ns
+        ? toMsFromNs(state.sha256.data.total_time_ns)
+        : toMsFromSeconds(state.sha256.data.total_time);
+    const bb84Total = state.bb84.data.total_time_ns
+        ? toMsFromNs(state.bb84.data.total_time_ns)
+        : toMsFromSeconds(state.bb84.data.total_time);
     
     charts.comparison = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['RSA (ms)', 'ECC (ms)', 'SHA-256 (μs)', 'BB84 (ms)'],
+            labels: ['RSA (ms)', 'ECC (ms)', 'SHA-256 (ms)', 'BB84 (ms)'],
             datasets: [{
                 label: 'Total Execution Time',
                 data: [rsaTotal, eccTotal, sha256Total, bb84Total],
@@ -446,4 +545,76 @@ function resetAll() {
     }
     
     updateStatus('connected', 'Ready');
+}
+
+// Additional functions for RSA and ECC providers
+function get_rsa_provider(prefer_pycryptodome = true) {
+    if (prefer_pycryptodome && HAS_PYCRYPTODOME) {
+        return PyCryptodomeRSAImpl.generate_key();
+    }
+    return RSAImpl.generate_key();
+}
+
+function get_ecc_provider(prefer_crypto = true) {
+    if (prefer_crypto && HAS_CRYPTOGRAPHY) {
+        return CryptographyECCImpl();
+    }
+    return ECCImpl(SECP192_TEST);
+}
+
+function benchmark_cryptography_rsa_oaep(message_size = 128, key_size = 2048) {
+    if (!HAS_CRYPTOGRAPHY) {
+        throw new RuntimeError("cryptography library not available");
+    }
+    const private_key = crypto_rsa.generate_private_key({ public_exponent: 65537, key_size: key_size });
+    const public_key = private_key.public_key();
+    const message = secrets.token_bytes(message_size);
+    let start = performance.now();
+    const ciphertext = public_key.encrypt(
+        message,
+        crypto_padding.OAEP({
+            mgf: crypto_padding.MGF1({ algorithm: crypto_hashes.SHA256() }),
+            algorithm: crypto_hashes.SHA256(),
+            label: null
+        })
+    );
+    const enc_duration = performance.now() - start;
+    start = performance.now();
+    const plaintext = private_key.decrypt(
+        ciphertext,
+        crypto_padding.OAEP({
+            mgf: crypto_padding.MGF1({ algorithm: crypto_hashes.SHA256() }),
+            algorithm: crypto_hashes.SHA256(),
+            label: null
+        })
+    );
+    const dec_duration = performance.now() - start;
+    return {
+        key_size: key_size,
+        message_size: message_size,
+        encrypt_s: enc_duration,
+        decrypt_s: dec_duration,
+        success: plaintext === message
+    };
+}
+
+function benchmark_cryptography_ecc_secp256r1(message_size = 32) {
+    if (!HAS_CRYPTOGRAPHY) {
+        throw new RuntimeError("cryptography library not available");
+    }
+    const private_key = crypto_ec.generate_private_key(crypto_ec.SECP256R1());
+    const peer_key = crypto_ec.generate_private_key(crypto_ec.SECP256R1());
+    const message = secrets.token_bytes(message_size);
+    let start = performance.now();
+    const signature = private_key.sign(message, crypto_ec.ECDSA(crypto_hashes.SHA256()));
+    const sign_duration = performance.now() - start;
+    start = performance.now();
+    peer_key.public_key().verify(signature, message, crypto_ec.ECDSA(crypto_hashes.SHA256()));
+    const verify_duration = performance.now() - start;
+    const shared_secret = private_key.exchange(crypto_ec.ECDH(), peer_key.public_key());
+    return {
+        sign_s: sign_duration,
+        verify_s: verify_duration,
+        secret_len: shared_secret.byteLength
+    };
 }
