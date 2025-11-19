@@ -164,125 +164,150 @@ function updateAlgorithm(data) {
 }
 
 function updateMetrics(algorithm, data) {
-    switch(algorithm) {
-        case 'rsa':
-            if (data.keygen_time) {
-                document.getElementById('rsa-keygen').textContent = formatMsFromSeconds(data.keygen_time, 2);
+    switch (algorithm) {
+        case 'rsa': {
+            const keygen = data.keygen_stats;
+            if (keygen && typeof keygen.avg_ns === 'number') {
+                const base = formatMsFromNs(keygen.avg_ns, 2);
+                const std = keygen.std_ns ? formatMsFromNs(keygen.std_ns, 2) : null;
+                document.getElementById('rsa-keygen').textContent = std ? `${base} ± ${std}` : base;
             }
-            if (data.encrypt_time) {
-                document.getElementById('rsa-encrypt').textContent = formatMsFromSeconds(data.encrypt_time, 2);
+
+            const encrypt = data.encrypt_stats;
+            if (encrypt && typeof encrypt.avg_ns === 'number') {
+                const base = formatUsFromNs(encrypt.avg_ns, 2);
+                const std = encrypt.std_ns ? formatUsFromNs(encrypt.std_ns, 2) : null;
+                document.getElementById('rsa-encrypt').textContent = std ? `${base} ± ${std}` : base;
             }
-            if (data.decrypt_time) {
-                document.getElementById('rsa-decrypt').textContent = formatMsFromSeconds(data.decrypt_time, 2);
+
+            const decrypt = data.decrypt_stats;
+            if (decrypt && typeof decrypt.avg_ns === 'number') {
+                const base = formatUsFromNs(decrypt.avg_ns, 2);
+                const std = decrypt.std_ns ? formatUsFromNs(decrypt.std_ns, 2) : null;
+                document.getElementById('rsa-decrypt').textContent = std ? `${base} ± ${std}` : base;
             }
-            if (data.total_time) {
-                document.getElementById('rsa-total').textContent = formatMsFromSeconds(data.total_time, 2);
+
+            if (typeof data.total_time_ns === 'number') {
+                document.getElementById('rsa-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
             }
             break;
-            
-        case 'ecc':
-            if (data.keygen_time) {
-                const base = formatMsFromSeconds(data.keygen_time, 3);
-                const std = data.keygen_std ? formatMsFromSeconds(data.keygen_std, 3) : null;
+        }
+
+        case 'ecc': {
+            const keygen = data.keygen_stats;
+            if (keygen && typeof keygen.avg_ns === 'number') {
+                const base = formatMsFromNs(keygen.avg_ns, 3);
+                const std = keygen.std_ns ? formatMsFromNs(keygen.std_ns, 3) : null;
                 document.getElementById('ecc-keygen').textContent = std ? `${base} ± ${std}` : base;
             }
-            if (data.shared_time) {
-                const base = formatMsFromSeconds(data.shared_time, 3);
-                const std = data.shared_std ? formatMsFromSeconds(data.shared_std, 3) : null;
+
+            const shared = data.shared_stats;
+            if (shared && typeof shared.avg_ns === 'number') {
+                const base = formatMsFromNs(shared.avg_ns, 3);
+                const std = shared.std_ns ? formatMsFromNs(shared.std_ns, 3) : null;
                 document.getElementById('ecc-shared').textContent = std ? `${base} ± ${std}` : base;
             }
-            if (data.total_time) {
-                document.getElementById('ecc-total').textContent = formatMsFromSeconds(data.total_time, 2);
+
+            if (typeof data.total_time_ns === 'number') {
+                document.getElementById('ecc-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
             }
             break;
-            
-        case 'sha256':
-            {
-                const resultEntries = data.results ? Object.entries(data.results) : [];
-                const preferredKey = state.sha256.data.selectedSize !== undefined
-                    ? String(state.sha256.data.selectedSize)
-                    : data.size !== undefined
-                        ? String(data.size)
-                        : (resultEntries.length ? resultEntries[0][0] : undefined);
-                const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
-                const activeKey = activeEntry ? activeEntry[0] : undefined;
-                const selected = activeKey ? Number(activeKey) : state.sha256.data.selectedSize;
+        }
 
-                if (selected !== undefined) {
-                    document.getElementById('sha256-size-value').textContent = `${selected} bytes`;
+        case 'sha256': {
+            const resultEntries = data.results ? Object.entries(data.results) : [];
+            const preferredKey = state.sha256.data.selectedSize !== undefined
+                ? String(state.sha256.data.selectedSize)
+                : data.size !== undefined
+                    ? String(data.size)
+                    : (resultEntries.length ? resultEntries[0][0] : undefined);
+            const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
+
+            if (activeEntry) {
+                const activeKey = Number(activeEntry[0]);
+                if (Number.isFinite(activeKey)) {
+                    document.getElementById('sha256-size-value').textContent = `${activeKey} bytes`;
                 }
 
-                if (activeEntry) {
-                    const stats = activeEntry[1];
+                const stats = activeEntry[1];
+                if (stats && typeof stats.avg_ns === 'number') {
                     const avgUs = formatUsFromNs(stats.avg_ns, 3);
                     const stdUs = stats.std_ns ? formatUsFromNs(stats.std_ns, 3) : null;
                     document.getElementById('sha256-time').textContent = stdUs ? `${avgUs} ± ${stdUs}` : avgUs;
                 }
+            }
 
-                if (typeof data.total_time_ns === 'number') {
-                    document.getElementById('sha256-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
-                }
+            if (typeof data.total_time_ns === 'number') {
+                document.getElementById('sha256-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
             }
             break;
-            
-        case 'bb84':
-            {
-                const resultEntries = data.results ? Object.entries(data.results) : [];
+        }
+
+        case 'bb84': {
+            const resultEntries = data.results ? Object.entries(data.results) : [];
+            if (resultEntries.length) {
                 const preferredKey = state.bb84.data.selectedQubit !== undefined
                     ? String(state.bb84.data.selectedQubit)
-                    : data.qubit_count !== undefined
-                        ? String(data.qubit_count)
-                        : (resultEntries.length ? resultEntries[0][0] : undefined);
+                    : data.qubits !== undefined
+                        ? String(data.qubits)
+                        : resultEntries[0][0];
                 const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
-                const activeKey = activeEntry ? activeEntry[0] : undefined;
-                const selected = activeKey ? Number(activeKey) : state.bb84.data.selectedQubit;
-
-                if (selected !== undefined) {
-                    document.getElementById('bb84-qubits').textContent = `${selected} qubits`;
-                }
 
                 if (activeEntry) {
-                    const stats = activeEntry[1];
-                    const avgMs = formatMsFromNs(stats.avg_ns, 3);
-                    const stdMs = stats.std_ns ? formatMsFromNs(stats.std_ns, 3) : null;
-                    document.getElementById('bb84-time').textContent = stdMs ? `${avgMs} ± ${stdMs}` : avgMs;
+                    const qubits = Number(activeEntry[0]);
+                    document.getElementById('bb84-qubits').textContent = Number.isFinite(qubits)
+                        ? `${qubits}`
+                        : activeEntry[0];
+
+                    const stats = activeEntry[1] || {};
+                    if (typeof stats.avg_ns === 'number') {
+                        const avgMs = formatMsFromNs(stats.avg_ns, 3);
+                        const stdMs = stats.std_ns ? formatMsFromNs(stats.std_ns, 3) : null;
+                        document.getElementById('bb84-time').textContent = stdMs ? `${avgMs} ± ${stdMs}` : avgMs;
+                    }
+
                     if (typeof stats.avg_error === 'number') {
                         document.getElementById('bb84-error-rate').textContent = `${(stats.avg_error * 100).toFixed(2)}%`;
                     }
                 }
-
-                if (typeof data.total_time_ns === 'number') {
-                    document.getElementById('bb84-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
-                }
             }
+
+            if (typeof data.total_time_ns === 'number') {
+                document.getElementById('bb84-total').textContent = `${toMsFromNs(data.total_time_ns).toFixed(2)} ms`;
+            }
+            break;
+        }
+
+        default:
             break;
     }
 }
 
 function updateChart(algorithm, data) {
     const canvas = document.getElementById(`${algorithm}-canvas`);
-    if (!canvas) return;
-    
+    if (!canvas) {
+        return;
+    }
+
     const ctx = canvas.getContext('2d');
-    
-    // Destroy existing chart
+
     if (charts[algorithm]) {
         charts[algorithm].destroy();
     }
-    
+
     let chartData = null;
 
     switch (algorithm) {
-        case 'rsa':
+        case 'rsa': {
+            const keygenMs = data.keygen_stats?.avg_ns ? toMsFromNs(data.keygen_stats.avg_ns) : 0;
+            const encryptMs = data.encrypt_stats?.avg_ns ? toMsFromNs(data.encrypt_stats.avg_ns) : 0;
+            const decryptMs = data.decrypt_stats?.avg_ns ? toMsFromNs(data.decrypt_stats.avg_ns) : 0;
+
             chartData = {
                 labels: ['Key Gen', 'Encrypt', 'Decrypt'],
                 datasets: [{
                     label: 'Time (ms)',
-                    data: [
-                        toMsFromSeconds(data.keygen_time).toFixed(2),
-                        toMsFromSeconds(data.encrypt_time).toFixed(2),
-                        toMsFromSeconds(data.decrypt_time).toFixed(2)
-                    ],
+                    data: [keygenMs, encryptMs, decryptMs],
                     backgroundColor: [
                         'rgba(99, 102, 241, 0.7)',
                         'rgba(139, 92, 246, 0.7)',
@@ -297,16 +322,17 @@ function updateChart(algorithm, data) {
                 }]
             };
             break;
+        }
 
-        case 'ecc':
+        case 'ecc': {
+            const keygenMs = data.keygen_stats?.avg_ns ? toMsFromNs(data.keygen_stats.avg_ns) : 0;
+            const sharedMs = data.shared_stats?.avg_ns ? toMsFromNs(data.shared_stats.avg_ns) : 0;
+
             chartData = {
                 labels: ['Key Gen', 'Shared Secret'],
                 datasets: [{
                     label: 'Time (ms)',
-                    data: [
-                        toMsFromSeconds(data.keygen_time).toFixed(3),
-                        toMsFromSeconds(data.shared_time).toFixed(3)
-                    ],
+                    data: [keygenMs, sharedMs],
                     backgroundColor: [
                         'rgba(16, 185, 129, 0.7)',
                         'rgba(5, 150, 105, 0.7)'
@@ -319,6 +345,7 @@ function updateChart(algorithm, data) {
                 }]
             };
             break;
+        }
 
         case 'sha256': {
             const resultEntries = data.results ? Object.entries(data.results) : [];
@@ -332,14 +359,14 @@ function updateChart(algorithm, data) {
                     ? String(data.size)
                     : resultEntries[0][0];
             const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
-            const selected = Number(activeEntry[0]);
-            const avgNs = activeEntry[1]?.avg_ns ?? null;
+            const selectedLabel = activeEntry ? activeEntry[0] : resultEntries[0][0];
+            const avgNs = activeEntry?.[1]?.avg_ns ?? null;
 
             chartData = {
-                labels: [`${Number.isFinite(selected) ? selected : activeEntry[0]} bytes`],
+                labels: [`${selectedLabel} bytes`],
                 datasets: [{
                     label: 'Time (μs)',
-                    data: [avgNs !== null ? toUsFromNs(avgNs).toFixed(3) : 0],
+                    data: [avgNs !== null ? toUsFromNs(avgNs) : 0],
                     backgroundColor: 'rgba(245, 158, 11, 0.7)',
                     borderColor: 'rgba(245, 158, 11, 1)',
                     borderWidth: 2
@@ -354,14 +381,8 @@ function updateChart(algorithm, data) {
                 break;
             }
 
-            const preferredKey = state.bb84.data.selectedQubit !== undefined
-                ? String(state.bb84.data.selectedQubit)
-                : data.qubit_count !== undefined
-                    ? String(data.qubit_count)
-                    : resultEntries[0][0];
-            const activeEntry = resultEntries.find(([key]) => key === preferredKey) || resultEntries[0];
             const labels = resultEntries.map(([key]) => `${key} qubits`);
-            const dataPoints = resultEntries.map(([, stats]) => toMsFromNs(stats.avg_ns).toFixed(3));
+            const dataPoints = resultEntries.map(([, stats]) => stats?.avg_ns ? toMsFromNs(stats.avg_ns) : 0);
 
             chartData = {
                 labels,
@@ -414,7 +435,7 @@ function updateChart(algorithm, data) {
             }
         }
     };
-    
+
     charts[algorithm] = new Chart(ctx, {
         type: 'bar',
         data: chartData,
@@ -434,7 +455,9 @@ function updateComparisonChart() {
         charts.comparison.destroy();
     }
     
-    const rsaTotal = toMsFromSeconds(state.rsa.data.total_time) || 0;
+    const rsaTotal = state.rsa.data.total_time_ns
+        ? toMsFromNs(state.rsa.data.total_time_ns)
+        : toMsFromSeconds(state.rsa.data.total_time);
     const eccTotal = state.ecc.data.total_time_ns
         ? toMsFromNs(state.ecc.data.total_time_ns)
         : toMsFromSeconds(state.ecc.data.total_time);

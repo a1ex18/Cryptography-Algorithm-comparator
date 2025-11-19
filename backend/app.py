@@ -239,7 +239,7 @@ def run_rsa_with_progress(bits=512, msg_size=32, repeats=2):
             return
          emit_progress('rsa', 'keygen', 30, {
              'status': 'Keys generated',
-             'time': gen_time,
+                 'time': gen_time,
              'modulus_bits': pub[0].bit_length()
          })
          
@@ -249,39 +249,53 @@ def run_rsa_with_progress(bits=512, msg_size=32, repeats=2):
          
          # Encryption
          emit_progress('rsa', 'encrypt', 50, {'status': 'Encrypting...'})
-         enc_times = []
+         enc_samples_ns = []
          chunks = None
          for i in range(repeats):
-            t = time.perf_counter()
+            t = time.perf_counter_ns()
             chunks = rsa_encrypt_bytes(pub, msg)
-            enc_times.append(time.perf_counter() - t)
+            enc_samples_ns.append(time.perf_counter_ns() - t)
             emit_progress('rsa', 'encrypt', 50 + (i+1) * 15 // repeats, {
                 'status': f'Encryption {i+1}/{repeats}',
                 'chunks': len(chunks)
             })
-         enc_time = sum(enc_times) / repeats
+         enc_avg_ns = statistics.mean(enc_samples_ns)
+         enc_std_ns = statistics.pstdev(enc_samples_ns) if len(enc_samples_ns) > 1 else 0.0
          
          # Decryption
          if chunks is None:
              raise RuntimeError('RSA encryption produced no chunks to decrypt')
 
          emit_progress('rsa', 'decrypt', 70, {'status': 'Decrypting...'})
-         dec_times = []
+         dec_samples_ns = []
          for i in range(repeats):
-            t = time.perf_counter()
+            t = time.perf_counter_ns()
             recovered = rsa_decrypt_bytes(priv, chunks)
-            dec_times.append(time.perf_counter() - t)
+            dec_samples_ns.append(time.perf_counter_ns() - t)
             emit_progress('rsa', 'decrypt', 70 + (i+1) * 20 // repeats, {
                 'status': f'Decryption {i+1}/{repeats}'
             })
-         dec_time = sum(dec_times) / repeats
+         dec_avg_ns = statistics.mean(dec_samples_ns)
+         dec_std_ns = statistics.pstdev(dec_samples_ns) if len(dec_samples_ns) > 1 else 0.0
+
+         keygen_ns = int(gen_time * 1_000_000_000)
+         total_time_ns = keygen_ns + sum(enc_samples_ns) + sum(dec_samples_ns)
          
          # Complete
          emit_progress('rsa', 'complete', 100, {
-             'keygen_time': gen_time,
-             'encrypt_time': enc_time,
-             'decrypt_time': dec_time,
-             'total_time': gen_time + enc_time + dec_time
+             'keygen_stats': {
+                 'avg_ns': keygen_ns,
+                 'std_ns': 0.0
+             },
+             'encrypt_stats': {
+                 'avg_ns': enc_avg_ns,
+                 'std_ns': enc_std_ns
+             },
+             'decrypt_stats': {
+                 'avg_ns': dec_avg_ns,
+                 'std_ns': dec_std_ns
+             },
+             'total_time_ns': total_time_ns
          })
          
      except Exception as e:
@@ -306,8 +320,8 @@ def run_ecc_with_progress(curve_name='secp192r1', repeats=10):
             emit_progress('ecc', 'keygen', 10 + (i+1) * 40 // repeats, {
                 'status': f'Generated {i+1}/{repeats} pairs'
             })
-        keygen_avg = statistics.mean(keygen_samples) / 1_000_000_000
-        keygen_std = statistics.pstdev(keygen_samples) / 1_000_000_000 if len(keygen_samples) > 1 else 0.0
+        keygen_avg_ns = statistics.mean(keygen_samples)
+        keygen_std_ns = statistics.pstdev(keygen_samples) if len(keygen_samples) > 1 else 0.0
         
         # ECDH shared secret
         emit_progress('ecc', 'ecdh', 50, {'status': 'Computing shared secrets...'})
@@ -324,17 +338,20 @@ def run_ecc_with_progress(curve_name='secp192r1', repeats=10):
                 'status': f'ECDH {i+1}/{repeats}',
                 'matched': s1 == s2
             })
-        shared_avg = statistics.mean(shared_samples) / 1_000_000_000
-        shared_std = statistics.pstdev(shared_samples) / 1_000_000_000 if len(shared_samples) > 1 else 0.0
+        shared_avg_ns = statistics.mean(shared_samples)
+        shared_std_ns = statistics.pstdev(shared_samples) if len(shared_samples) > 1 else 0.0
         
         # Complete
         total_ns = sum(keygen_samples) + sum(shared_samples)
         emit_progress('ecc', 'complete', 100, {
-            'keygen_time': keygen_avg,
-            'shared_time': shared_avg,
-            'keygen_std': keygen_std,
-            'shared_std': shared_std,
-            'total_time': keygen_avg + shared_avg,
+            'keygen_stats': {
+                'avg_ns': keygen_avg_ns,
+                'std_ns': keygen_std_ns
+            },
+            'shared_stats': {
+                'avg_ns': shared_avg_ns,
+                'std_ns': shared_std_ns
+            },
             'total_time_ns': total_ns
         })
         
