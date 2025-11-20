@@ -27,6 +27,9 @@ Flask-Cors==4.0.0
 # - statistics (built-in)
 # - typing (built-in)
 
+# Hardened cryptography primitives
+cryptography==42.0.5
+
 # Optional: for better performance
 # numpy==1.26.2  # Uncomment if you want to add numerical operations
 
